@@ -190,7 +190,6 @@ Class IDropTarget {
          Effect := 0
       Else
          Effect := ((grfKeyState & 0x08) && (Instance.DropEffects & 0x02) ? 2 : 1)
-      NumPut(Effect, (A_PtrSize = 8 ? P3 : P4) + 0, "UInt")
       If (Instance.OverUserFunc) {
          If (A_PtrSize = 8)
             X := P2 & 0xFFFFFFFF, Y := P2 >> 32
@@ -198,6 +197,7 @@ Class IDropTarget {
             X := P2, Y := P3
          Effect := Instance.OverUserFunc.Call(Instance, grfKeyState, X, Y, Effect)
       }
+      NumPut(Effect, (A_PtrSize = 8 ? P3 : P4) + 0, "UInt")
       Return 0 ; S_OK
    }
    ; -------------------------------------------------------------------------------------------------------------------------------
