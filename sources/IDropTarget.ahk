@@ -1,5 +1,6 @@
 ﻿; ==================================================================================================================================
 ; IDropTarget interface -> msdn.microsoft.com/en-us/library/ms679679(v=vs.85).aspx
+; Requires: IDataObject.ahk
 ; ==================================================================================================================================
 ; Creates a new instance of the IDropTarget object.
 ; Parameters:
@@ -7,10 +8,6 @@
 ;     UserFuncSuffix    -  The suffix for the names of the user-defined functions which will be called on events (see Remarks).
 ;     RequiredFormats   -  An array containing the numeric clipboard formats required to permit drop.
 ;                          If omitted, only 15 (CF_HDROP) used for dropping files will be required.
-;     DropEffects       -  The drop effects supported by the target. This can be one or a combination of the values:
-;                             1 (DROPEFFECT_COPY)
-;                             2 (DROPEFFECT_MOVE)
-;                          If omitted, 3 (i.e. copy or move) will be used.
 ;     Register          -  If set to True the target will be registered as a drop target on creation.
 ;                          Otherwise you have to call the RegisterDragDrop() method manually to activate the drop target.
 ; Return value:
@@ -50,12 +47,12 @@
 ;           2 (DROPEFFECT_MOVE)
 ;        The return value of IDropTargetOnLeave is not used.
 ; ==================================================================================================================================
-IDropTarget_Create(HWND, UserFuncSuffix, RequiredFormats := "", DropEffects := 3, Register := True) {
-   Return New IDropTarget(HWND, UserFuncSuffix, RequiredFormats, DropEffects, Register)
+IDropTarget_Create(HWND, UserFuncSuffix, RequiredFormats := "", Register := True) {
+   Return New IDropTarget(HWND, UserFuncSuffix, RequiredFormats, Register)
 }
 ; ==================================================================================================================================
 Class IDropTarget {
-   __New(HWND, UserFuncSuffix, RequiredFormats := "", DropEffects := 3, Register := True) {
+   __New(HWND, UserFuncSuffix, RequiredFormats := "", Register := True) {
       Static Methods := ["QueryInterface", "AddRef", "Release", "DragEnter", "DragOver", "DragLeave", "Drop"]
       Static Params := (A_PtrSize = 8 ? [3, 1, 1, 5, 4, 1, 5] : [3, 1, 1, 6, 5, 1, 6])
       Static DefaultFormat := 15 ; CF_HDROP
@@ -68,8 +65,6 @@ Class IDropTarget {
       UserFunc := DropFunc . UserFuncSuffix
       If !IsFunc(UserFunc) || (Func(UserFunc).MinParams < 6)
          Return False
-      If !(DropEffects & 3)
-         Return False
       This.DropUserFunc := Func(UserFunc)
       UserFunc := EnterFunc . UserFuncSuffix
       If (IsFunc(UserFunc) && (Func(UserFunc).MinParams > 5))
@@ -80,14 +75,13 @@ Class IDropTarget {
       UserFunc := LeaveFunc . UserFuncSuffix
       If (IsFunc(UserFunc) && (Func(UserFunc).MinParams > 0))
          This.LeaveUserFunc := Func(UserFunc)
-      This.DropEffects := DropEffects & 3
       This.HWND := HWND
       This.Registered := False
       If IsObject(RequiredFormats)
          This.Required := RequiredFormats
       Else
          This.Required := [DefaultFormat]
-      This.PermitDrop := False
+      This.PreferredDropEffect := 0
       SizeOfVTBL := (Methods.Length() + 2) * A_PtrSize
       This.SetCapacity("VTBL", SizeOfVTBL)
       This.Ptr := This.GetAddress("VTBL")
@@ -160,23 +154,24 @@ Class IDropTarget {
       ; Params 32: IDataObject *pDataObj, DWORD grfKeyState, LONG x, LONG y, DWORD *pdwEffect
       ; Params 64: IDataObject *pDataObj, DWORD grfKeyState, POINTL pt, DWORD *pdwEffect
       Instance := Object(A_EventInfo)
-      Instance.PermitDrop := 0
-      For Each, Format In Instance.Required {
-         IDataObject_CreateFormatEtc(FORMATETC, Format)
-         If (Instance.PermitDrop := IDataObject_QueryGetData(pDataObj, FORMATETC))
-            Break
+      Effect := 0
+      If !(grfKeyState & 0x02) { ; right-drag isn't supported by default
+         For Each, Format In Instance.Required {
+            IDataObject_CreateFormatEtc(FORMATETC, Format)
+            If (Effect := IDataObject_QueryGetData(pDataObj, FORMATETC))
+               Break
+         }
       }
-      If !(Instance.PermitDrop)
-         Effect := 0
-      Else
-         Effect := ((grfKeyState & 0x08) && (Instance.DropEffects & 0x02) ? 2 : 1)
-      If (Instance.EnterUserFunc) {
+      If (Effect) && (Instance.EnterUserFunc) {
          If (A_PtrSize = 8)
             X := P2 & 0xFFFFFFFF, Y := P2 >> 32
          Else
             X := P2, Y := P3
          Effect := Instance.EnterUserFunc.Call(Instance, pDataObj, grfKeyState, X, Y, Effect)
       }
+      Instance.PreferredDropEffect := Effect
+      ; If Ctrl and/or Shift is pressed swap the effect
+      Effect ^= grfKeyState & 0x0C ? 3 : 0
       NumPut(Effect, (A_PtrSize = 8 ? P4 : P5) + 0, "UInt")
       Return 0 ; S_OK
    }
@@ -186,11 +181,9 @@ Class IDropTarget {
       ; Params 32: DWORD grfKeyState, LONG x, LONG y, DWORD *pdwEffect
       ; Params 64: DWORD grfKeyState, POINTL pt, DWORD *pdwEffect
       Instance := Object(A_EventInfo)
-      If !(Instance.PermitDrop)
-         Effect := 0
-      Else
-         Effect := ((grfKeyState & 0x08) && (Instance.DropEffects & 0x02) ? 2 : 1)
-      If (Instance.OverUserFunc) {
+      ; If Ctrl and/or Shift is pressed swap the effect
+      Effect := Instance.PreferredDropEffect ^ (grfKeyState & 0x0C ? 3 : 0)
+      If (Effect) && (Instance.OverUserFunc) {
          If (A_PtrSize = 8)
             X := P2 & 0xFFFFFFFF, Y := P2 >> 32
          Else
@@ -204,7 +197,7 @@ Class IDropTarget {
    DragLeave() {
       ; DragLeave -> msdn.microsoft.com/en-us/library/ms680110(v=vs.85).aspx
       Instance := Object(A_EventInfo)
-      Instance.PermitDrop := False
+      Instance.PreferredDropEffect := 0
       If (Instance.LeaveUserFunc)
          Instance.LeaveUserFunc.Call(Instance)
       Return 0 ; S_OK
@@ -215,14 +208,14 @@ Class IDropTarget {
       ; Params 32: IDataObject *pDataObj, DWORD grfKeyState, LONG x, LONG y, DWORD *pdwEffect
       ; Params 64: IDataObject *pDataObj, DWORD grfKeyState, POINTL pt, DWORD *pdwEffect
       Instance := Object(A_EventInfo)
-      Effect := ((grfKeyState & 0x08) && (Instance.DropEffects & 0x02) ? 2 : 1)
+      Effect := Instance.PreferredDropEffect ^ (grfKeyState & 0x0C ? 3 : 0)
       If (A_PtrSize = 8)
          X := P3 & 0xFFFFFFFF, Y := P3 >> 32
       Else
          X := P3, Y := P4
       Effect := Instance.DropUserFunc.Call(Instance, pDataObj, grfKeyState, X, Y, Effect)
       NumPut(Effect, (A_PtrSize = 8 ? P4 : P5) + 0, "UInt")
-      ObjRelease(pDataObj)
+      ; ObjRelease(pDataObj)
       Return 0 ; S_OK
    }
 }

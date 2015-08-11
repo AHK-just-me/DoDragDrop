@@ -1,17 +1,11 @@
 ﻿; ==================================================================================================================================
 ; IDropSource interface -> msdn.microsoft.com/en-us/library/ms690071(v=vs.85).aspx
+; Note: Right-drag is not supported as yet!
 ; ==================================================================================================================================
-IDropSource_Create(DragKey := 0x01) {
+IDropSource_Create() {
    Static Methods := ["QueryInterface", "AddRef", "Release", "QueryContinueDrag", "GiveFeedback"]
    Static Params  := [3, 1, 1, 3, 2]
    Static VTBL, Dummy := VarSetCapacity(VTBL, A_PtrSize, 0)
-   If (DragKey)
-      If ((DragKey & 0x03) <> DragKey)
-         Return False
-      Else
-         IDropSource_DragKey(DragKey)
-   Else
-      Return False
    If (NumGet(VTBL, "UPtr") = 0) {
       VarSetCapacity(VTBL, (Methods.Length() + 2) * A_PtrSize, 0)
       NumPut(&VTBL + A_PtrSize, VTBL, "UPtr")
@@ -61,23 +55,11 @@ IDropSource_Release(IDropSource) {
 IDropSource_QueryContinueDrag(IDropSource, fEscapePressed, grfKeyState) {
    ; QueryContinueDrag -> msdn.microsoft.com/en-us/library/ms690076(v=vs.85).aspx
    ; DRAGDROP_S_CANCEL : S_OK : DRAGDROP_S_DROP
-   Return (fEscapePressed ? 0x40101 : grfKeyState & IDropSource_DragKey() ? 0 : 0x40100)
+   Return (fEscapePressed ? 0x40101 : (grfKeyState & 0x01) ? 0 : 0x40100)
 }
 ; ----------------------------------------------------------------------------------------------------------------------------------
 IDropSource_GiveFeedback(IDropSource, dwEffect) {
    ; GiveFeedback -> msdn.microsoft.com/en-us/library/ms693723(v=vs.85).aspx
    Return 0x40102 ; DRAGDROP_S_USEDEFAULTCURSORS
-}
-; ==================================================================================================================================
-IDropSource_DragKey(Key := "") {
-   ; Default: MK_LBUTTON (1)
-   ; Supported: MK_LBUTTON (1) and MK_RBUTTON (2)
-   Static DragKey := 0x01
-   If (Key)
-      If ((Key & 0x03) = Key)
-         DragKey := Key
-      Else
-         DragKey := 0x01
-   Return DragKey
 }
 ; ==================================================================================================================================

@@ -22,7 +22,7 @@ MK_MBUTTON := 0x10   ;-- The middle mouse button is down.
 MK_ALT     := 0x20   ;-- The ALT key is down.
 ; MK_BUTTON  := ?    ;-- Not documented.
 ;-- DragDrop includes --------------------------------------------------------------------------------------------------------------
-#Include IDropTarget.ahk
+#Include IDropTarget2.ahk
 #Include DoDragDrop.ahk
 ;-- GUI ----------------------------------------------------------------------------------------------------------------------------
 Gui, +AlwaysOnTop
@@ -94,6 +94,8 @@ IDropTargetOnDrop_LV(TargetObject, pDataObj, KeyState, X, Y, DropEffect) {
    ; "Registered" formats
    Static CF_REGISTEREDFIRST := 0xC000
    Static CF_REGISTEREDLAST  := 0xFFFF
+   Gui, +OwnDialogs
+   ; IDataObject_SetPerformedDropEffect(pDataObj, DropEffect)
    LV_Delete()
    GuiControl, -Redraw, LV
    If (pEnumObj := IDataObject_EnumFormatEtc(pDataObj)) {
@@ -130,13 +132,9 @@ IDropTargetOnDrop_LV(TargetObject, pDataObj, KeyState, X, Y, DropEffect) {
                Value := NumGet(Data, "UInt")
             Else If (Format = 15) {       ; CF_HDROP
                LV_Add("", A_Index, Format, Name, TYMED, Size, "")
-               Value := ""
-               Offset := NumGet(Data, 0, "UInt")
-               CP := NumGet(Data, 16, "UInt") ? "UTF-16" : "CP0"
-               Offset := NumGet(Data, 0, "UInt")
-               While (File := StrGet(&Data + Offset, , CP)) {
-                  LV_Add("", "", "", "", "", "", File)
-                  Offset += (StrLen(File) + 1) << (CP = "UTF-16")
+               If IDataObject_GetDroppedFiles(pDataObj, Files) {
+                  For Each, File In Files
+                     LV_Add("", "", "", "", "", "", File)
                }
                Continue
             }
@@ -148,6 +146,8 @@ IDropTargetOnDrop_LV(TargetObject, pDataObj, KeyState, X, Y, DropEffect) {
    Loop, % LV_GetCount("Column")
       LV_ModifyCol(A_Index, "AutoHdr")
    GuiControl, +Redraw, LV
+   Effect := {0: "NONE", 1: "COPY", 2: "MOVE", 3: "LINK"}[DropEffect]
+   SB_SetText("   DropEffect: " . Effect)
    Return DropEffect
 }
 ; ==================================================================================================================================
