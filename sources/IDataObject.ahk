@@ -151,5 +151,29 @@ IDataObject_SetPerformedDropEffect(pDataObj, DropEffect) {
    Return IDataObject_SetData(pDataObj, FORMATETC, STGMEDIUM)
 }
 ; ==================================================================================================================================
+IDataObject_SHFileOperation(pDataObj, TargetPath, Operation) {
+   ; SHFileOperation -> msdn.microsoft.com/en-us/library/bb762164(v=vs.85).aspx
+   If Operation Not In 1,2
+      Return False
+   IDataObject_CreateFormatEtc(FORMATETC, 15) ; CF_HDROP
+   If IDataObject_GetData(pDataObj, FORMATETC, Size, Data) {
+      Offset := NumGet(Data, 0, "UInt") ; offset of the file list
+      IsUnicode := NumGet(Data, 16, "UInt") ; 1: Unicode, 0: ANSI
+      TargetLen := StrPut(TargetPath, IsUnicode ? "UTF-16" : "CP0") + 2
+      VarSetCapacity(Target, TargetLen << !!IsUnicode, 0)
+      StrPut(TargetPath, &Target, IsUnicode ? "UTF-16" : "CP0")
+      SHFOSLen := A_PtrSize * (A_PtrSize = 8 ? 7 : 8)
+      VarSetCapacity(SHFOS, SHFOSLen, 0) ; SHFILEOPSTRUCT
+      NumPut(Operation, SHFOS, A_PtrSize, "UInt") ; FO_MOVE = 1, FO_COPY = 2, so we have to swap the DropEffect
+      NumPut(&Data + Offset, SHFOS, A_PtrSize * 2, "UPtr")
+      NumPut(&Target, SHFOS, A_PtrSize * 3, "UPtr")
+      NumPut(0x0200, SHFOS, A_PtrSize * 4, "UInt") ; FOF_NOCONFIRMMKDIR
+      If (IsUnicode)
+         Return DllCall("Shell32.dll\SHFileOperationW", "Ptr", &SHFOS, "Int")
+      Else
+         Return DllCall("Shell32.dll\SHFileOperationA", "Ptr", &SHFOS, "Int")
+   }
+}
+; ==================================================================================================================================
 #Include *i %A_ScriptDir%\IEnumFORMATETC.ahk
 ; ==================================================================================================================================
