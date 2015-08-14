@@ -151,7 +151,7 @@ IDataObject_SetPerformedDropEffect(pDataObj, DropEffect) {
    Return IDataObject_SetData(pDataObj, FORMATETC, STGMEDIUM)
 }
 ; ==================================================================================================================================
-IDataObject_SHFileOperation(pDataObj, TargetPath, Operation) {
+IDataObject_SHFileOperation(pDataObj, TargetPath, Operation, HWND := 0) {
    ; SHFileOperation -> msdn.microsoft.com/en-us/library/bb762164(v=vs.85).aspx
    If Operation Not In 1,2
       Return False
@@ -164,6 +164,7 @@ IDataObject_SHFileOperation(pDataObj, TargetPath, Operation) {
       StrPut(TargetPath, &Target, IsUnicode ? "UTF-16" : "CP0")
       SHFOSLen := A_PtrSize * (A_PtrSize = 8 ? 7 : 8)
       VarSetCapacity(SHFOS, SHFOSLen, 0) ; SHFILEOPSTRUCT
+      NumPut(HWND, SHFOS, 0, "UPtr")
       NumPut(Operation, SHFOS, A_PtrSize, "UInt") ; FO_MOVE = 1, FO_COPY = 2, so we have to swap the DropEffect
       NumPut(&Data + Offset, SHFOS, A_PtrSize * 2, "UPtr")
       NumPut(&Target, SHFOS, A_PtrSize * 3, "UPtr")
