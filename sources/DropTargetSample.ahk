@@ -22,23 +22,13 @@ MK_MBUTTON := 0x10   ;-- The middle mouse button is down.
 MK_ALT     := 0x20   ;-- The ALT key is down.
 ; MK_BUTTON  := ?    ;-- Not documented.
 ;-- DragDrop includes --------------------------------------------------------------------------------------------------------------
-#Include IDropTarget2.ahk
-#Include DoDragDrop.ahk
+#Include IDropTarget.ahk
 ;-- GUI ----------------------------------------------------------------------------------------------------------------------------
 Gui, +AlwaysOnTop
 Gui, Margin, 20, 20
 Gui, Add, ListView, r20 w700 hwndhLV vLV, #|FormatNum|FormatName|TYMED|Size|Value
 Gui, Add, Text, xp y+2, % "   N/S = not supported"
-Gui, Add, Edit, r6 w700 +0x100 hwndhEdit,  ;-- ES_NOHIDESEL:=0x100
-   (LTrim
-    Possible data source.
-    At first select text in this control.
-    Then click into the control again and drag to the ListView control above.
-    To MOVE text, press Ctrl while dragging the text.
-    If it doesn't work, just close your eyes for about 3 seconds and retry.
-   )
-Gui, Add, StatusBar
-Gui, Show, , Drag & Drop Example
+Gui, Show, , ListView as Drop Target Example
 ;-- Register the ListView as a drop potential target for OLE drag-and-drop operations.
 IDT_LV := IDropTarget_Create(hLV, "_LV", [1, 15]) ; CF_TEXT, CF_HDROP
 Return
@@ -149,68 +139,4 @@ IDropTargetOnDrop_LV(TargetObject, pDataObj, KeyState, X, Y, DropEffect) {
    Effect := {0: "NONE", 1: "COPY", 2: "MOVE", 3: "LINK"}[DropEffect]
    SB_SetText("   DropEffect: " . Effect)
    Return DropEffect
-}
-; ==================================================================================================================================
-; Context-sensitive Hotkeys
-; ==================================================================================================================================
-#If MouseOverControl(hEdit)
-~LButton::
-SB_SetText("")
-;-- Anything selected?
-DllCall("SendMessage", "Ptr", hEdit, "UInt", 0x00B0, "UIntP", SelBeg := 0, "UIntP", SelEnd := 0) ; EM_GETSEL
-If (SelBeg = SelEnd)
-   Return
-Gui, +OwnDialogs
-;-- Copy selected text to the clipboard
-SavedClipboard := ClipboardAll ;-- Save the current clipboard
-; Clipboard := "" ;-- Empty the clipboard
-; SendMessage, 0x0301, 0, 0, , ahk_id %hEdit% ; WM_COPY
-ControlGet, Selection, Selected, , , ahk_id %hEdit%
-ClipboardSetText(Selection)
-;-- Initiate DragDrop
-;   Note: The DoDragDrop() function will run until a drop or cancel occurs
-SB_SetText("   Drag&Drop has been started ...")
-Effect := DoDragDrop()
-Effect_Text := {0: "NONE", 1: "COPY", 2: "MOVE", 3: "LINK"}[Effect]
-;-- If move was performed, clear (delete) selected text
-If (Effect = DROPEFFECT_MOVE)
-   SendMessage, 0x0303, 0, 0, , ahk_id %hEdit% ; WM_CLEAR
-Else
-;-- Otherwise remove the selection
-   SendMessage, 0x00B1, SelEnd, SelEnd, , ahk_id %hEdit% ; EM_SETSEL
-SB_SetText("   DropEffect: " . Effect_Text)
-;-- Restore the original clipboard
-Clipboard := SavedClipboard
-Return
-#If
-; ==================================================================================================================================
-; Hotkey function
-; ==================================================================================================================================
-MouseOverControl(hCtrl) {
-   MouseGetPos, , , , hMouseOverControl, 2
-   Return (hMouseOverControl = hCtrl)
-}
-; ----------------------------------------------------------------------------------------------------------------------------------
-; Just a test to see what happens if you put only one of the text formats onto the clipboard. It turned out that the data object
-; created by OleGetClipboard() contains the same 4 formats (CF_LOCALE, CF_OEMTEXT, CF_TEXT, CF_UNICODETEXT) as though
-;     Clipboard := TextToSet
-; is used.
-; ----------------------------------------------------------------------------------------------------------------------------------
-ClipboardSetText(TextToSet) {
-   Static SizeT := A_IsUnicode ? 2 : 1 ; size of a TCHAR
-   Static Format := A_IsUnicode ? 13 : 1 ; CF_UNICODETEXT : CF_TEXT
-   ; -------------------------------------------------------------------------------------------------------------------------------
-   ; Add text to the clipboard
-   Length := StrLen(TextToSet) + 1
-   If DllCall("OpenClipboard", "Ptr", A_ScriptHwnd) && DllCall("EmptyClipboard") {
-      ; 0x42 = GMEM_MOVEABLE (0x02) | GMEM_ZEROINIT (0x40)
-      hMem := DllCall("GlobalAlloc", "UInt", 0x42, "UInt", Length * SizeT, "UPtr")
-      pMem := DllCall("GlobalLock", "Ptr", hMem)
-      StrPut(TextToSet, pMem, Length)
-      DllCall("GlobalUnlock", "Ptr", hMem)
-      DllCall("SetClipboardData", "UInt", Format, "UPtr", hMem)
-      DllCall("CloseClipboard")
-      Return Length
-   }
-   Return False
 }
