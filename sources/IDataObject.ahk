@@ -3,16 +3,6 @@
 ; Partial implementation.
 ; Requires: IEnumFORMATETC.ahk
 ; ==================================================================================================================================
-IDataObject_EnumFormatEtc(pDataObj) {
-   ; EnumFormatEtc -> msdn.microsoft.com/en-us/library/ms683979(v=vs.85).aspx
-   ; DATADIR_GET = 1
-   Static EnumFormatEtc := A_PtrSize * 8
-   pVTBL := NumGet(pDataObj + 0, "UPtr")
-   If !DllCall(NumGet(pVTBL + EnumFormatEtc, "UPtr"), "Ptr", pDataObj, "UInt", 1, "PtrP", ppenumFormatEtc, "Int")
-      Return ppenumFormatEtc
-   Return False
-}
-; ==================================================================================================================================
 IDataObject_GetData(pDataObj, ByRef FORMATETC, ByRef Size, ByRef Data) {
    ; GetData -> msdn.microsoft.com/en-us/library/ms678431(v=vs.85).aspx
    Static GetData := A_PtrSize * 3
@@ -48,6 +38,16 @@ IDataObject_SetData(pDataObj, ByRef FORMATETC, ByRef STGMEDIUM) {
    Static SetData := A_PtrSize * 7
    pVTBL := NumGet(pDataObj + 0, "UPtr")
    Return !DllCall(NumGet(pVTBL + SetData, "UPtr"), "Ptr", pDataObj, "Ptr", &FORMATETC, "Ptr", &STGMEDIUM, "Int", True, "Int")
+}
+; ==================================================================================================================================
+IDataObject_EnumFormatEtc(pDataObj, DataDir := 1) {
+   ; EnumFormatEtc -> msdn.microsoft.com/en-us/library/ms683979(v=vs.85).aspx
+   ; DATADIR_GET = 1, DATADIR_SET = 2
+   Static EnumFormatEtc := A_PtrSize * 8
+   pVTBL := NumGet(pDataObj + 0, "UPtr")
+   If !DllCall(NumGet(pVTBL + EnumFormatEtc, "UPtr"), "Ptr", pDataObj, "UInt", DataDir, "PtrP", ppenumFormatEtc, "Int")
+      Return ppenumFormatEtc
+   Return False
 }
 ; ==================================================================================================================================
 ; Auxiliary functions to get/set data of the data object.
@@ -128,8 +128,7 @@ IDataObject_SetLogicalDropEffect(pDataObj, DropEffect) {
    IDataObject_CreateFormatEtc(FORMATETC, LogicalDropEffect)
    , VarSetCapacity(STGMEDIUM, 24, 0) ; 64-bit
    , NumPut(1, STGMEDIUM, "UInt") ; TYMED_HGLOBAL
-   ; 0x42 = GMEM_MOVEABLE (0x02) | GMEM_ZEROINIT (0x40)
-   , hMem := DllCall("GlobalAlloc", "UInt", 0x42, "UInt", 4, "UPtr")
+   , hMem := DllCall("GlobalAlloc", "UInt", 0x42, "UInt", 4, "UPtr") ; 0x42 = GMEM_MOVEABLE (0x02) | GMEM_ZEROINIT (0x40)
    , pMem := DllCall("GlobalLock", "Ptr", hMem)
    , NumPut(DropEffect, pMem + 0, "UChar")
    , DllCall("GlobalUnlock", "Ptr", hMem)
@@ -142,8 +141,7 @@ IDataObject_SetPerformedDropEffect(pDataObj, DropEffect) {
    IDataObject_CreateFormatEtc(FORMATETC, PerformedDropEffect)
    , VarSetCapacity(STGMEDIUM, 24, 0) ; 64-bit
    , NumPut(1, STGMEDIUM, "UInt") ; TYMED_HGLOBAL
-   ; 0x42 = GMEM_MOVEABLE (0x02) | GMEM_ZEROINIT (0x40)
-   , hMem := DllCall("GlobalAlloc", "UInt", 0x42, "UInt", 4, "UPtr")
+   , hMem := DllCall("GlobalAlloc", "UInt", 0x42, "UInt", 4, "UPtr") ; 0x42 = GMEM_MOVEABLE (0x02) | GMEM_ZEROINIT (0x40)
    , pMem := DllCall("GlobalLock", "Ptr", hMem)
    , NumPut(DropEffect, pMem + 0, "UChar")
    , DllCall("GlobalUnlock", "Ptr", hMem)
@@ -176,5 +174,5 @@ IDataObject_SHFileOperation(pDataObj, TargetPath, Operation, HWND := 0) {
    }
 }
 ; ==================================================================================================================================
-#Include *i %A_ScriptDir%\IEnumFORMATETC.ahk
+#Include *i IEnumFORMATETC.ahk
 ; ==================================================================================================================================

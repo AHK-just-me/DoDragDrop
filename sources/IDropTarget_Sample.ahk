@@ -129,6 +129,8 @@ IDropTargetOnDrop_LV(TargetObject, pDataObj, KeyState, X, Y, DropEffect) {
                Continue
             }
          }
+         Else If (Size = 4)
+            Value := NumGet(Data, 0, "UInt")
          LV_Add("", A_Index, Format, Name, TYMED, Size, Value)
       }
       ObjRelease(pEnumObj)
@@ -136,7 +138,7 @@ IDropTargetOnDrop_LV(TargetObject, pDataObj, KeyState, X, Y, DropEffect) {
    Loop, % LV_GetCount("Column")
       LV_ModifyCol(A_Index, "AutoHdr")
    GuiControl, +Redraw, LV
-   Effect := {0: "NONE", 1: "COPY", 2: "MOVE", 3: "LINK"}[DropEffect]
+   Effect := {0: "NONE", 1: "COPY", 2: "MOVE", 4: "LINK"}[DropEffect]
    SB_SetText("   DropEffect: " . Effect)
    Return DropEffect
 }
