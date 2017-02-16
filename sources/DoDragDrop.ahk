@@ -34,7 +34,7 @@ DoDragDrop(Param1 := "", OffCX := 0, OffCY := 0, ColorKey := 0x00FFFFFF) {
             IDSH := IDragSourceHelper_CreateFromBitmap(pDataObj, Param1, W, H, W // 2, H)
       }
       RC := DllCall("Ole32.dll\DoDragDrop","Ptr", pDataObj, "Ptr", IDS, "UInt", DropEffects, "PtrP", Effect, "Int")
-      If IDataObject_GetPerformedDropEffect(pDataObj, ByRef PerformedDropEffect)
+      If IDataObject_GetPerformedDropEffect(pDataObj, PerformedDropEffect)
          Effect := PerformedDropEffect
       ObjRelease(pDataObj)
       If (IDSH)
