@@ -1,10 +1,19 @@
 # DoDragDrop - Drag&Drop for AHK
 State: Beta
 
-Sources:  
+Sources:
+
+* SHDataObject.ahk  
+Data object with support fro drag images on Win Vista+.  
+
+* SHDoDragDrop.ahk  
+Example of a function calling the `SHDoDragDrop` API (Win Vista+).  
+
+* SHDoDragDrop_sample.ahk  
+Simple example for the use of `SHDoDragDrop()`.
 
 * DoDragDrop.ahk  
-Example for a function which is calling the `DoDragDrop` API.  
+Example of a function which is calling the `DoDragDrop` API.  
 
 * IDataObject.ahk  
 Partial implementation of the `IDataObject` interface.  
@@ -22,7 +31,7 @@ Simple example for the use of IDropSource.
 `IDropTarget` interface including `IDropTargetHelper` calls.  
 
 * IDropTarget_Sample.ahk  
-Example for the use of IDropTarget.  
+Simple example for the use of `IDropTarget`.  
 
 * IEnumFORMATETC.ahk  
 Partial implementation of the `IEnumFORMATETC` interface.  
