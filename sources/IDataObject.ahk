@@ -13,7 +13,7 @@ IDataObject_GetData(pDataObj, ByRef FORMATETC, ByRef Size, ByRef Data) {
    If !DllCall(NumGet(pVTBL + GetData, "UPtr"), "Ptr", pDataObj, "Ptr", &FORMATETC, "Ptr", &STGMEDIUM, "Int") {
       If (NumGet(STGMEDIUM, "UInt") = 1) { ; TYMED_HGLOBAL
          hGlobal := NumGet(STGMEDIUM, A_PtrSize, "UPtr")
-         , pGlobal := DllCall("GlobalLock", "Ptr", hGlobal, "Uptr")
+         , pGlobal := DllCall("GlobalLock", "Ptr", hGlobal, "UPtr")
          , Size := DllCall("GlobalSize", "Ptr", hGlobal, "UPtr")
          , VarSetCapacity(Data, Size, 0)
          , DllCall("RtlMoveMemory", "Ptr", &Data, "Ptr", pGlobal, "Ptr", Size)
@@ -57,7 +57,7 @@ IDataObject_EnumFormatEtc(pDataObj, DataDir := 1) {
 IDataObject_CreateFormatEtc(ByRef FORMATETC, Format, Aspect := 1, Index := -1, Tymed := 1) {
    ; DVASPECT_CONTENT = 1, Index all data = -1, TYMED_HGLOBAL = 1
    VarSetCapacity(FORMATETC, 32, 0) ; 64-bit
-   , NumPut(Format, FORMATETC, 0, "Ushort")
+   , NumPut(Format, FORMATETC, 0, "UShort")
    , NumPut(Aspect, FORMATETC, A_PtrSize = 8 ? 16 : 8 , "UInt")
    , NumPut(Index, FORMATETC, A_PtrSIze = 8 ? 20 : 12, "Int")
    , NumPut(Tymed, FORMATETC, A_PtrSize = 8 ? 24 : 16, "UInt")
@@ -112,6 +112,17 @@ IDataObject_GetPerformedDropEffect(pDataObj, ByRef DropEffect) {
    Return False
 }
 ; ==================================================================================================================================
+IDataObject_GetPreferredDropEffect(pDataObj, ByRef DropEffect) {
+   Static PreferredDropEffect := DllCall("RegisterClipboardFormat", "Str", "Preferred DropEffect")
+   IDataObject_CreateFormatEtc(FORMATETC, PreferredDropEffect)
+   DropEffect := ""
+   If IDataObject_GetData(pDataObj, FORMATETC, Size, Data) {
+      DropEffect := NumGet(Data, "UChar")
+      Return True
+   }
+   Return False
+}
+; ==================================================================================================================================
 IDataObject_GetText(pDataObj, ByRef Txt) {
    Static CF_NATIVE := A_IsUnicode ? 13 : 1 ; CF_UNICODETEXT : CF_TEXT
    IDataObject_CreateFormatEtc(FORMATETC, CF_NATIVE)
@@ -129,7 +140,7 @@ IDataObject_SetLogicalDropEffect(pDataObj, DropEffect) {
    , VarSetCapacity(STGMEDIUM, 24, 0) ; 64-bit
    , NumPut(1, STGMEDIUM, "UInt") ; TYMED_HGLOBAL
    , hMem := DllCall("GlobalAlloc", "UInt", 0x42, "UInt", 4, "UPtr") ; 0x42 = GMEM_MOVEABLE (0x02) | GMEM_ZEROINIT (0x40)
-   , pMem := DllCall("GlobalLock", "Ptr", hMem)
+   , pMem := DllCall("GlobalLock", "Ptr", hMem, "UPtr")
    , NumPut(DropEffect, pMem + 0, "UChar")
    , DllCall("GlobalUnlock", "Ptr", hMem)
    , NumPut(hMem, STGMEDIUM, A_PtrSize, "UPtr")
@@ -142,8 +153,36 @@ IDataObject_SetPerformedDropEffect(pDataObj, DropEffect) {
    , VarSetCapacity(STGMEDIUM, 24, 0) ; 64-bit
    , NumPut(1, STGMEDIUM, "UInt") ; TYMED_HGLOBAL
    , hMem := DllCall("GlobalAlloc", "UInt", 0x42, "UInt", 4, "UPtr") ; 0x42 = GMEM_MOVEABLE (0x02) | GMEM_ZEROINIT (0x40)
-   , pMem := DllCall("GlobalLock", "Ptr", hMem)
+   , pMem := DllCall("GlobalLock", "Ptr", hMem, "UPtr")
    , NumPut(DropEffect, pMem + 0, "UChar")
+   , DllCall("GlobalUnlock", "Ptr", hMem)
+   , NumPut(hMem, STGMEDIUM, A_PtrSize, "UPtr")
+   Return IDataObject_SetData(pDataObj, FORMATETC, STGMEDIUM)
+}
+; ==================================================================================================================================
+IDataObject_SetPreferredDropEffect(pDataObj, DropEffect) {
+   Static PreferredDropEffect := DllCall("RegisterClipboardFormat", "Str", "Preferred DropEffect")
+   IDataObject_CreateFormatEtc(FORMATETC, PreferredDropEffect)
+   , VarSetCapacity(STGMEDIUM, 24, 0) ; 64-bit
+   , NumPut(1, STGMEDIUM, "UInt") ; TYMED_HGLOBAL
+   , hMem := DllCall("GlobalAlloc", "UInt", 0x42, "UInt", 4, "UPtr") ; 0x42 = GMEM_MOVEABLE (0x02) | GMEM_ZEROINIT (0x40)
+   , pMem := DllCall("GlobalLock", "Ptr", hMem, "UPtr")
+   , NumPut(DropEffect, pMem + 0, "UChar")
+   , DllCall("GlobalUnlock", "Ptr", hMem)
+   , NumPut(hMem, STGMEDIUM, A_PtrSize, "UPtr")
+   Return IDataObject_SetData(pDataObj, FORMATETC, STGMEDIUM)
+}
+; ==================================================================================================================================
+IDataObject_SetText(pDataObj, ByRef Txt) {
+   Static SizeT := A_IsUnicode ? 2 : 1
+   Static CF_NATIVE := A_IsUnicode ? 13 : 1 ; CF_UNICODETEXT : CF_TEXT
+   Size := (StrLen(Txt)+ 1) * SizeT
+   IDataObject_CreateFormatEtc(FORMATETC, CF_NATIVE)
+   , VarSetCapacity(STGMEDIUM, 24, 0) ; 64-bit
+   , NumPut(1, STGMEDIUM, "UInt") ; TYMED_HGLOBAL
+   , hMem := DllCall("GlobalAlloc", "UInt", 0x42, "UInt", Size, "UPtr") ; 0x42 = GMEM_MOVEABLE (0x02) | GMEM_ZEROINIT (0x40)
+   , pMem := DllCall("GlobalLock", "Ptr", hMem, "UPtr")
+   , StrPut(Txt, pMem + 0)
    , DllCall("GlobalUnlock", "Ptr", hMem)
    , NumPut(hMem, STGMEDIUM, A_PtrSize, "UPtr")
    Return IDataObject_SetData(pDataObj, FORMATETC, STGMEDIUM)

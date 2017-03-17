@@ -22,15 +22,15 @@ MK_MBUTTON := 0x10   ;-- The middle mouse button is down.
 MK_ALT     := 0x20   ;-- The ALT key is down.
 ; MK_BUTTON  := ?    ;-- Not documented.
 ;-- DragDrop includes --------------------------------------------------------------------------------------------------------------
-#Include IDropTarget.ahk
+#Include IDropTarget2.ahk
 ;-- GUI ----------------------------------------------------------------------------------------------------------------------------
 Gui, +AlwaysOnTop
 Gui, Margin, 20, 20
-Gui, Add, ListView, r20 w700 hwndhLV vLV, #|FormatNum|FormatName|TYMED|Size|Value
+Gui, Add, ListView, r20 w700 hwndHLV vLV, #|FormatNum|FormatName|TYMED|Size|Value
 Gui, Add, Text, xp y+2, % "   N/S = not supported"
 Gui, Show, , ListView as Drop Target Example
 ;-- Register the ListView as a drop potential target for OLE drag-and-drop operations.
-IDT_LV := IDropTarget_Create(hLV, "_LV", [1, 15]) ; CF_TEXT, CF_HDROP
+IDT_LV := IDropTarget_Create(HLV, "_LV", -1) ; no format required - only for testing purposes
 Return
 ; ==================================================================================================================================
 GUIClose:

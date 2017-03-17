@@ -85,7 +85,9 @@ Class IDropTarget {
          This.LeaveUserFunc := Func(UserFunc)
       This.HWND := HWND
       This.Registered := False
-      If IsObject(RequiredFormats)
+      If (RequiredFormats = -1)
+         This.Required := 0
+      Else If IsObject(RequiredFormats)
          This.Required := RequiredFormats
       Else
          This.Required := [DefaultFormat]
@@ -180,16 +182,27 @@ Class IDropTarget {
       ; Params 64: IDataObject *pDataObj, DWORD grfKeyState, POINTL pt, DWORD *pdwEffect
       Static HelperEnter := A_PtrSize * 3
       Instance := Object(A_EventInfo)
+      Instance.PreferredDropEffect := 0
       If (A_PtrSize = 8)
          X := P2 & 0xFFFFFFFF, Y := P2 >> 32
       Else
          X := P2, Y := P3
       Effect := 0
       If !(grfKeyState & 0x02) { ; right-drag isn't supported by default
-         For Each, Format In Instance.Required {
-            IDataObject_CreateFormatEtc(FORMATETC, Format)
-            If (Effect := IDataObject_QueryGetData(pDataObj, FORMATETC))
-               Break
+         If IDataObject_GetPreferredDropEffect(pDataObj, DropEffect)
+            Effect := DropEffect
+         Else
+            Effect := NumGet((A_PtrSize = 8 ? P4 : P5) + 0, "UInt")
+         Effect := (Effect & 0x01) ? 1 : (Effect & 0x02)
+         If IsObject(Instance.Required) {
+            Found := False
+            For Each, Format In Instance.Required {
+               IDataObject_CreateFormatEtc(FORMATETC, Format)
+               If (Found := IDataObject_QueryGetData(pDataObj, FORMATETC))
+                  Break
+            }
+            If !(Found)
+               Effect := 0
          }
       }
       If (Effect) && (Instance.EnterUserFunc)
