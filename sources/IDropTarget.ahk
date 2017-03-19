@@ -281,7 +281,6 @@ Class IDropTarget {
          , pVTBL := NumGet(Instance.Helper + 0, "UPtr")
          , DllCall(NumGet(pVTBL + HelperDrop, "UPtr"), "Ptr", Instance.Helper, "Ptr", pDataObj, "Ptr", &PT, "UInt", Effect, "Int")
       }
-      ObjRelease(pDataObj)
       Return 0 ; S_OK
    }
 }
